@@ -8,6 +8,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.metrics import accuracy_score
 import joblib
+import tensorflow as tf
+from sklearn.preprocessing import StandardScaler
+
 
 # Ruta al directorio descomprimido del Drowsiness Dataset
 drowsiness_data_path = 'drowsiness\\train\\'  # Ajusta esta ruta según sea necesario
@@ -78,20 +81,30 @@ print(f"First 5 labels: {y[:5]}")
 
 
 
+# Normaliza los datos
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# Definir el modelo en TensorFlow/Keras
+model = tf.keras.Sequential([
+    tf.keras.layers.Dense(10, activation='relu', input_shape=(X_scaled.shape[1],)),  # Capa oculta con 10 neuronas
+    tf.keras.layers.Dense(2, activation='softmax')  # Capa de salida con 2 neuronas para 2 clases
+])
+
+# Compilar el modelo
+model.compile(optimizer='adam',
+              loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
 # Dividir el conjunto de datos en entrenamiento y prueba
-if len(X) > 0:
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.3, random_state=42)
 
-    # Crear y entrenar el modelo basado en MAR
-    clf_bostezos_mar = DecisionTreeClassifier()
-    clf_bostezos_mar.fit(X_train, y_train)
+# Entrenar el modelo
+model.fit(X_train, y_train, epochs=10, validation_split=0.2)
 
-    # Hacer predicciones y evaluar el modelo
-    y_pred = clf_bostezos_mar.predict(X_test)
-    accuracy = accuracy_score(y_test, y_pred)
-    print(f'Accuracy del modelo de bostezos: {accuracy * 100:.2f}%')
+# Evaluar el modelo
+loss, accuracy = model.evaluate(X_test, y_test)
+print(f'Accuracy del modelo en TensorFlow/Keras: {accuracy * 100:.2f}%')
 
-    # Guardar el modelo entrenado basado en MAR
-    joblib.dump(clf_bostezos_mar, 'modelo_bostezos_mar.pkl')
-else:
-    print("No se cargaron datos suficientes para entrenar el modelo.")
+# Guardar el modelo en formato .h5
+model.save('modelo_bostezos_mar.h5')

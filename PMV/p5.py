@@ -1,23 +1,26 @@
+from kivy.app import App
+from kivy.uix.image import Image
+from kivy.clock import Clock
+from kivy.graphics.texture import Texture
 import cv2
+import numpy as np
 import dlib
 import joblib
-import numpy as np
 from scipy.spatial import distance as dist
 from imutils import face_utils
-from tensorflow.keras.models import load_model
+from tensorflow.lite.python.interpreter import Interpreter
+from collections import deque
 import time
 import simpleaudio as sa
-from collections import deque
+import tensorflow as tf
 
-# Inicializar el detector de rostros y el predictor de puntos faciales de dlib
+# Cargar los modelos y recursos
 detector = dlib.get_frontal_face_detector()
 predictor = dlib.shape_predictor("shape_predictor_68_face_landmarks.dat")
-
-# Cargar los modelos entrenados
 modelo_bostezos_mar = joblib.load('modelo_bostezos_mar.pkl')
-model_pestanear = load_model("eye_status_model.h5")
+interpreter = Interpreter(model_path="eye_status_model.tflite")
+interpreter.allocate_tensors()
 
-# Indices de los puntos faciales correspondientes a los ojos y la boca
 (lStart, lEnd) = face_utils.FACIAL_LANDMARKS_IDXS["left_eye"]
 (rStart, rEnd) = face_utils.FACIAL_LANDMARKS_IDXS["right_eye"]
 (mStart, mEnd) = face_utils.FACIAL_LANDMARKS_IDXS["mouth"]
@@ -29,15 +32,39 @@ def eye_aspect_ratio(eye):
     ear = (A + B) / (2.0 * C)
     return ear
 
+interpreter = tf.lite.Interpreter(model_path='eye_status_model.tflite')
+interpreter.allocate_tensors()
+
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
+
 def eye_status(eye):
     if eye.size == 0:
         return "Unknown"
+    
+    # Ajustar el tamaño de la imagen y convertir a float32
     eye = cv2.resize(eye, (24, 24))
-    eye = eye.astype("float") / 255.0
-    eye = np.expand_dims(eye, axis=-1)
-    eye = np.expand_dims(eye, axis=0)
-    pred = model_pestanear.predict(eye)
+    eye = eye.astype("float32") / 255.0
+    
+    # Verificar dimensiones esperadas
+    input_shape = input_details[0]['shape']
+    
+    if len(input_shape) == 4:
+        eye = np.expand_dims(eye, axis=-1)  # Añadir canal
+        eye = np.expand_dims(eye, axis=0)   # Añadir dimensión de batch
+    elif len(input_shape) == 3:
+        eye = np.expand_dims(eye, axis=0)   # Solo añadir dimensión de batch
+    else:
+        raise ValueError("Dimensiones inesperadas para la entrada del modelo")
+    
+    # Establecer el tensor
+    interpreter.set_tensor(input_details[0]['index'], eye)
+    interpreter.invoke()
+    pred = interpreter.get_tensor(output_details[0]['index'])
+    
     return "Closed" if pred > 0.6 else "Open"
+
+
 
 def mouth_aspect_ratio(mouth):
     A = dist.euclidean(mouth[13], mouth[19])
@@ -53,7 +80,7 @@ def calcular_puntuacion_somnolencia(microsuenos_acumulados, promedio_pestaneos, 
     puntuacion = (pesos['microsuenos'] * microsuenos_acumulados) + \
                  (pesos['promedio_pestaneos'] * promedio_pestaneos) + \
                  (pesos['bostezos'] * bostezos)
-    return puntuacion
+    return min(puntuacion,100)
 
 def detectar_rostros_y_puntos(gray):
     rects = detector(gray, 0)
@@ -105,50 +132,58 @@ def procesar_boca(frame, shape, current_time, yawn_start_time, MAR_THRESHOLD, ya
         yawn_start_time = None
         yawn_detected = False
 
-    return yawn_start_time, total_yawns, yawn_detected, yawn_count,yawn_timestamps
+    return yawn_start_time, total_yawns, yawn_detected, yawn_count, yawn_timestamps
 
 def reproducir_alarma():
     wave_obj = sa.WaveObject.from_wave_file('alarma.wav')
     play_obj = wave_obj.play()
     play_obj.wait_done()
 
-def detect_drowsiness_and_yawn():
-    cap = cv2.VideoCapture(0)
-    blink_counter = 0
-    total_blinks = 0
-    total_yawns = 0
-    total_microsueños = 0
-    microsleep_start_time = None
-    yawn_start_time = None
-    yawn_detected = False
-    yawn_count = 0
-    blink_start_time = None
-    microsleep_threshold = 0.5                      # Tiempo de parpadeo para considerar un microsueño
-    yawn_duration_threshold = 5.0                   # Duración del bostezo para considerarlo
-    MAR_THRESHOLD = 0.3                             # Umbral para detectar bostezos
-    blink_rate_window = 60
-    start_time = time.time()
-    previous_alert_level = None
+def superponer_imagen(frame, imagen_path, x_offset, y_offset):
+    imagen_critica = cv2.imread(imagen_path, cv2.IMREAD_UNCHANGED)
+    y1, y2 = y_offset, y_offset + imagen_critica.shape[0]
+    x1, x2 = x_offset, x_offset + imagen_critica.shape[1]
 
-    blink_timestamps = deque()  # Cola para almacenar los tiempos de parpadeos
-    yawn_timestamps = deque()
+    alpha_s = imagen_critica[:, :, 3] / 255.0
+    alpha_l = 1.0 - alpha_s
 
-    pesos = {
-        'microsuenos': 2.7,
-        'promedio_pestaneos': 0.1,
-        'bostezos': 0.3
-    }
+    for c in range(0, 3):
+        frame[y1:y2, x1:x2, c] = (alpha_s * imagen_critica[:, :, c] +
+                                  alpha_l * frame[y1:y2, x1:x2, c])
+    return frame
 
-    while True:
-        ret, frame = cap.read()
+class DrowsinessApp(App):
+    def build(self):
+        self.img = Image()
+        self.capture = cv2.VideoCapture(0)
+        self.texture = None
+        Clock.schedule_interval(self.update, 1.0 / 30.0)  # Update every 1/30 seconds
+        return self.img
+
+    def update(self, dt):
+        ret, frame = self.capture.read()
         if not ret:
-            break
+            return
 
         current_time = time.time()
-        elapsed_time = current_time - start_time
-
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         rects, shapes = detectar_rostros_y_puntos(gray)
+
+        blink_counter = 0
+        total_blinks = 0
+        total_yawns = 0
+        total_microsueños = 0
+        microsleep_start_time = None
+        yawn_start_time = None
+        yawn_detected = False
+        yawn_count = 0
+        blink_start_time = None
+        microsleep_threshold = 0.5
+        yawn_duration_threshold = 4.0
+        MAR_THRESHOLD = 0.3
+
+        blink_timestamps = deque()
+        yawn_timestamps = deque()
 
         for shape in shapes:
             leftEyeStatus, rightEyeStatus = procesar_ojos(frame, gray, shape)
@@ -159,7 +194,7 @@ def detect_drowsiness_and_yawn():
                 blink_counter += 1
                 if current_time - microsleep_start_time >= microsleep_threshold:
                     cv2.putText(frame, "Microsueno detectado", (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-                    total_microsueños += 1  # Incrementamos el total de microsueños
+                    total_microsueños += 1
             else:
                 microsleep_start_time = None
                 if blink_counter > 1:
@@ -167,71 +202,31 @@ def detect_drowsiness_and_yawn():
                     blink_timestamps.append(current_time)
                 blink_counter = 0
 
-            cv2.putText(frame, f'Left: {leftEyeStatus}', (shape[lStart][0], shape[lStart][1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-            cv2.putText(frame, f'Right: {rightEyeStatus}', (shape[rStart][0], shape[rStart][1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-            cv2.putText(frame, f'Parpadeos: {total_blinks}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
+            cv2.putText(frame, f'Left Eye: {leftEyeStatus}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            cv2.putText(frame, f'Right Eye: {rightEyeStatus}', (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
             yawn_start_time, total_yawns, yawn_detected, yawn_count, yawn_timestamps = procesar_boca(frame, shape, current_time, yawn_start_time, MAR_THRESHOLD, yawn_duration_threshold, total_yawns, yawn_detected, yawn_count, yawn_timestamps)
 
-        blink_rate = (total_blinks / elapsed_time) * 60
-        # Calcular la tasa de parpadeos en los últimos 60 segundos
-        while blink_timestamps and current_time - blink_timestamps[0] > 60:
-            blink_timestamps.popleft()
+        cv2.putText(frame, f'Bostezos: {total_yawns}', (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
 
-        blink_rate_60s = len(blink_timestamps)
+        # Cálculo y visualización de puntuación de somnolencia
+        puntuacion = calcular_puntuacion_somnolencia(total_microsueños, total_blinks, total_yawns, {'microsuenos': 1, 'promedio_pestaneos': 1, 'bostezos': 1})
+        cv2.putText(frame, f'Somnolencia: {puntuacion}', (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
 
-        # Calcular la tasa de parpadeos en los últimos 60 segundos
-        while yawn_timestamps and current_time - yawn_timestamps[0] > 60:
-            yawn_timestamps.popleft()
+        if puntuacion > 50:  # Umbral de puntuación para activar alarma
+            reproducir_alarma()
 
-        blink_rate_60s = len(blink_timestamps)
-        yawn_rate_60s = len(yawn_timestamps)
-        cv2.putText(frame, f'Parpadeos ultimos 60s: {blink_rate_60s}', (10, 400), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
-        cv2.putText(frame, f'Bostezos: {yawn_count}', (10, 420), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
-        cv2.putText(frame, f'bostezos ultimos 60s: {yawn_rate_60s}', (10, 440), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 255), 2)
+        # Mostrar el resultado en Kivy
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        if not self.texture:
+            self.texture = Texture.create(size=(frame.shape[1], frame.shape[0]), colorfmt='rgb')
+        self.texture.blit_buffer(frame.flatten(), colorfmt='rgb', bufferfmt='ubyte')
+        self.img.texture = self.texture
 
-        if blink_rate_60s < 15:
-            somnolencia_puntuacion = calcular_puntuacion_somnolencia(total_microsueños, blink_rate, total_yawns, pesos) + 5
-        else:
-            somnolencia_puntuacion = calcular_puntuacion_somnolencia(total_microsueños, blink_rate, total_yawns, pesos)
+    def on_stop(self):
+        if self.capture:
+            self.capture.release()
 
-        if yawn_rate_60s > 1:
-            somnolencia_puntuacion += yawn_rate_60s**2
-        else:
-            somnolencia_puntuacion += 0
-        
+if __name__ == '__main__':
+    DrowsinessApp().run()
 
-        cv2.putText(frame, f'Somnolencia: {somnolencia_puntuacion:.2f}', (10, 150), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-
-        alert_level = None
-        if somnolencia_puntuacion < 20:
-            alert_level = "ninguna"
-        elif 20 <= somnolencia_puntuacion < 40:
-            alert_level = "baja"
-            cv2.putText(frame, "Somnolencia: Baja", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        elif 40 <= somnolencia_puntuacion < 60:
-            alert_level = "moderada"
-            cv2.putText(frame, "Somnolencia: Moderada", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
-        elif 60 <= somnolencia_puntuacion < 70:
-            alert_level = "alta"
-            cv2.putText(frame, "Somnolencia: Alta", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 165, 255), 2) # Naranja
-        else:
-            alert_level = "critica"
-            cv2.putText(frame, "ALERTA: Somnolencia Critica", (10, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
-
-            # Solo reproducir la alarma en el nivel crítico
-            if alert_level != previous_alert_level:
-                reproducir_alarma()
-
-        previous_alert_level = alert_level
-
-        cv2.imshow("Frame", frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    cap.release()
-    cv2.destroyAllWindows()
-
-if __name__ == "__main__":
-
-    detect_drowsiness_and_yawn()

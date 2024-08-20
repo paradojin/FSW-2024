@@ -58,8 +58,8 @@ def load_drowsiness_images(data_path):
                     for (x1, y1) in mouth:
                         cv2.circle(image, (x1, y1), 1, (0, 255, 0), -1)
                     cv2.rectangle(image, (x, y), (x + w, y + h), (255, 0, 0), 2)
-                    cv2.imshow("Face Detection", image)
-                    cv2.waitKey(1)
+                    #cv2.imshow("Face Detection", image)
+                    #cv2.waitKey(1)
                 else:
                     print(f"No face detected in file: {file_path}")
 

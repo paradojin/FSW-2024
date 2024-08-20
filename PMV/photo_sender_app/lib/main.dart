@@ -1,83 +1,145 @@
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
-import 'dart:async';
 import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:async';
 import 'dart:io';
 
-List<CameraDescription> cameras = [];
-CameraController? controller;
-
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  cameras = await availableCameras();
-  // Selecciona la cámara frontal
-  controller = CameraController(cameras.firstWhere((camera) => camera.lensDirection == CameraLensDirection.front), ResolutionPreset.medium);
-  runApp(MyApp());
+
+  // Inicializar las cámaras disponibles en el dispositivo
+  final cameras = await availableCameras();
+  
+  // Seleccionar la cámara frontal en lugar de la primera cámara disponible
+  final frontCamera = cameras.firstWhere(
+    (camera) => camera.lensDirection == CameraLensDirection.front,
+  );
+
+  runApp(MyApp(camera: frontCamera));
 }
 
 class MyApp extends StatelessWidget {
+  final CameraDescription camera;
+
+  MyApp({required this.camera});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: CameraScreen(),
+      title: 'Real-Time Driver Monitoring',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: CameraScreen(camera: camera),
     );
   }
 }
 
 class CameraScreen extends StatefulWidget {
+  final CameraDescription camera;
+
+  CameraScreen({required this.camera});
+
   @override
   _CameraScreenState createState() => _CameraScreenState();
 }
 
 class _CameraScreenState extends State<CameraScreen> {
-  late Timer _timer;
+  CameraController? _controller;
+  late Future<void> _initializeControllerFuture;
+  Timer? _timer;
+  bool isSendingFrames = false;
 
   @override
   void initState() {
     super.initState();
-    controller?.initialize().then((_) {
-      if (!mounted) return;
-      setState(() {});
-    });
-    _timer = Timer.periodic(Duration(seconds: 2), (Timer t) => _captureAndSendImage());
+    _initializeCamera();
   }
 
-  Future<void> _captureAndSendImage() async {
+  Future<void> _initializeCamera() async {
+    _controller = CameraController(
+      widget.camera,
+      ResolutionPreset.medium,
+    );
+
+    _initializeControllerFuture = _controller!.initialize();
+    await _initializeControllerFuture;
+  }
+
+  void _startOrStopSendingFrames() {
+    setState(() {
+      isSendingFrames = !isSendingFrames;
+      if (isSendingFrames) {
+        _timer = Timer.periodic(Duration(seconds: 1), (Timer t) => _captureImage());
+      } else {
+        _timer?.cancel();
+      }
+    });
+  }
+
+  Future<void> _captureImage() async {
     try {
-      final image = await controller?.takePicture();
-      if (image != null) {
-        final file = File(image.path);
-        final uri = Uri.parse('http://192.168.1.83:5000/detect');  // Cambia a la IP de tu PC
-        final request = http.MultipartRequest('POST', uri)
-          ..files.add(await http.MultipartFile.fromPath('image', file.path));
-        final response = await request.send();
-        if (response.statusCode == 200) {
-          print('Image sent successfully');
-        } else {
-          print('Failed to send image');
-        }
+      final image = await _controller!.takePicture();
+      await _sendFrameToServer(image);
+    } catch (e) {
+      print('Error capturing image: $e');
+    }
+  }
+
+  Future<void> _sendFrameToServer(XFile file) async {
+    try {
+      var request = http.MultipartRequest('POST', Uri.parse('http://10.10.18.113:5000/detect'));  // Cambia la IP según la dirección del servidor
+      request.files.add(await http.MultipartFile.fromPath('image', file.path));
+      var response = await request.send();
+
+      if (response.statusCode == 200) {
+        print('Frame sent successfully');
+      } else {
+        print('Failed to send frame. Status code: ${response.statusCode}');
+        response.stream.transform(utf8.decoder).listen((value) {
+          print(value);
+        });
       }
     } catch (e) {
-      print('Error capturing or sending image: $e');
+      print('Error sending frame: $e');
     }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Camera Example'),
+      appBar: AppBar(title: Text('Monitoreo del conductor en tiempo real')),
+      body: Stack(
+        children: [
+          FutureBuilder<void>(
+            future: _initializeControllerFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.done) {
+                return CameraPreview(_controller!);
+              } else {
+                return Center(child: CircularProgressIndicator());
+              }
+            },
+          ),
+          Positioned(
+            bottom: 20,
+            left: 20,
+            right: 20,
+            child: ElevatedButton(
+              onPressed: _startOrStopSendingFrames,
+              child: Text(isSendingFrames ? 'Finalizar viaje' : 'Iniciar viaje'),
+            ),
+          ),
+        ],
       ),
-      body: controller?.value.isInitialized ?? false
-          ? CameraPreview(controller!)
-          : Center(child: CircularProgressIndicator()),
     );
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    controller?.dispose();
-    super.dispose();
   }
 }

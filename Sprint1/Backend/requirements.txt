@@ -1,9 +1,9 @@
 fastapi
 uvicorn
 opencv-python
-numpy
+numpy==1.25.2
 dlib
 joblib
 scipy
 imutils
-tensorflow
+tensorflow==2.15.0

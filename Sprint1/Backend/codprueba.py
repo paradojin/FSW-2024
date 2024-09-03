@@ -148,24 +148,30 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
         for shape in shapes:
             leftEyeStatus, rightEyeStatus = procesar_ojos(frame, gray, shape)
 
+            
             # Procesar los ojos
-            global total_blinks, microsuenos_acumulados,blink_counter
+            global total_blinks, microsuenos_acumulados, blink_counter, microsleep_start_time
             current_time = time.time()
             microsleep_threshold = 0.5
 
-           
             if leftEyeStatus == "Closed" and rightEyeStatus == "Closed":
                 if microsleep_start_time is None:
-                    microsleep_start_time = current_time
+                    microsleep_start_time = current_time  # Inicia el conteo del tiempo con ojos cerrados
                 blink_counter += 1
+                # Verifica si se alcanza el umbral para un microsueño
                 if current_time - microsleep_start_time >= microsleep_threshold:
-                    microsuenos_acumulados += 1  # Incrementamos el total de microsueños
+                    microsuenos_acumulados += 1  # Cuenta un microsueño
+                    blink_counter = 0  # Resetea el contador de parpadeos
+                    microsleep_start_time = None  # Resetea el tiempo de inicio del microsueño
             else:
-                microsleep_start_time = None
-                if blink_counter > 1:
-                    total_blinks += 1
-                    blink_timestamps.append(current_time)
-                blink_counter = 0
+                if microsleep_start_time is not None:
+                    # Si el tiempo acumulado es menor que el umbral, cuenta como un parpadeo
+                    if blink_counter > 1 and (current_time - microsleep_start_time < microsleep_threshold):
+                        total_blinks += 1
+                        blink_timestamps.append(current_time)
+                    # Resetea los contadores y tiempos
+                    blink_counter = 0
+                    microsleep_start_time = None
 
 
             # Procesar la boca

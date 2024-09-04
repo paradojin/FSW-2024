@@ -31,11 +31,13 @@ model_pestanear = load_model("eye_status_model.h5")
 
 # Para almacenar las métricas de somnolencia
 blink_counter = 0
+microsleep_detected = False
 blink_timestamps = deque()
 yawn_timestamps = deque()
 total_blinks = 0
 total_yawns = 0
 microsuenos_acumulados = 0
+microsuenos_acumulados_1 = 0
 start_time = time.time()
 
 # Variables para medir el tiempo de los ojos cerrados
@@ -43,6 +45,12 @@ microsleep_start_time = None
 left_eye_closed_start_time = None
 right_eye_closed_start_time = None
 mouth_open_start_time = None
+
+pesos = {
+        'microsuenos': 7.0,
+        'promedio_pestaneos': 0.3 ,
+        'bostezos': 0.3
+    }
 
 def eye_aspect_ratio(eye):
     A = np.linalg.norm(eye[1] - eye[5])
@@ -100,18 +108,22 @@ async def ping():
 
 @app.get("/end_trip/")
 async def end_trip():
-    global blink_timestamps, yawn_timestamps, total_blinks, total_yawns, microsuenos_acumulados, start_time
+    global blink_timestamps, yawn_timestamps, total_blinks, total_yawns, microsuenos_acumulados, start_time,blink_counter, microsleep_detected,microsuenos_acumulados_1
     global left_eye_closed_start_time, right_eye_closed_start_time
 
     # Resetear las variables globales
+    blink_counter=0
+    
     blink_timestamps.clear()
     yawn_timestamps.clear()
     total_blinks = 0
     total_yawns = 0
+    microsuenos_acumulados_1 = 0
     microsuenos_acumulados = 0
     start_time = time.time()  # Reiniciar el tiempo de inicio
     left_eye_closed_start_time = None
     right_eye_closed_start_time = None
+    microsleep_detected = False
 
     return JSONResponse(content={"status": "ok", "message": "Viaje finalizado y variables reseteadas."})
 
@@ -135,12 +147,17 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
         frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)          # Para emulador
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
+        #cv2.imshow("Frame from Server", frame)
+        #if cv2.waitKey(1) & 0xFF == ord('q'):
+        #    cv2.destroyAllWindows()
+
         # Detectar rostros y puntos faciales
         rects, shapes = detectar_rostros_y_puntos(gray)
 
         # Verificar si se detectaron rostros
         if len(rects) == 0:
             raise HTTPException(status_code=400, detail="No se detectaron rostros en la imagen")
+            
 
         results = []
 
@@ -150,28 +167,33 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
 
             
             # Procesar los ojos
-            global total_blinks, microsuenos_acumulados, blink_counter, microsleep_start_time
+            global total_blinks, microsuenos_acumulados, blink_counter, microsleep_start_time, microsleep_detected,microsuenos_acumulados_1
+
             current_time = time.time()
             microsleep_threshold = 0.5
 
             if leftEyeStatus == "Closed" and rightEyeStatus == "Closed":
                 if microsleep_start_time is None:
-                    microsleep_start_time = current_time  # Inicia el conteo del tiempo con ojos cerrados
+                    microsleep_start_time = current_time
                 blink_counter += 1
-                # Verifica si se alcanza el umbral para un microsueño
+                
+                # Si los ojos están cerrados por más del umbral, es un microsueño
                 if current_time - microsleep_start_time >= microsleep_threshold:
-                    microsuenos_acumulados += 1  # Cuenta un microsueño
-                    blink_counter = 0  # Resetea el contador de parpadeos
-                    microsleep_start_time = None  # Resetea el tiempo de inicio del microsueño
+                    microsuenos_acumulados_1 += 1
+                    if not microsleep_detected:  # Solo contar un microsueño por periodo de ojos cerrados
+                        microsuenos_acumulados += 1
+                        microsleep_detected = True  # Evita que cuente más microsueños durante el mismo cierre de ojos
+
             else:
-                if microsleep_start_time is not None:
-                    # Si el tiempo acumulado es menor que el umbral, cuenta como un parpadeo
-                    if blink_counter > 1 and (current_time - microsleep_start_time < microsleep_threshold):
-                        total_blinks += 1
-                        blink_timestamps.append(current_time)
-                    # Resetea los contadores y tiempos
-                    blink_counter = 0
-                    microsleep_start_time = None
+                # Si los ojos se abren, reiniciar el temporizador y contar parpadeo si fue corto
+                if blink_counter > 1 and not microsleep_detected:
+                    total_blinks += 1
+                    blink_timestamps.append(current_time)
+                    
+                # Reiniciar contadores al abrir los ojos
+                blink_counter = 0
+                microsleep_start_time = None
+                microsleep_detected = False  # Reiniciar la detección de microsueños
 
 
             # Procesar la boca
@@ -191,7 +213,6 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
 
             # Calcular la puntuación de somnolencia
             blink_rate = (total_blinks / (current_time - start_time)) * 60
-            somnolencia_puntuacion = calcular_puntuacion_somnolencia(microsuenos_acumulados, blink_rate, total_yawns, {'microsuenos': 3.0, 'promedio_pestaneos': 0.1, 'bostezos': 0.3})
 
             #calcular metricas de 60 segundos
             # Calcular la tasa de parpadeos en los últimos 60 segundos
@@ -206,12 +227,24 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
 
             yawn_rate_60s = len(yawn_timestamps)
 
+            if blink_rate_60s < 15:
+                somnolencia_puntuacion = calcular_puntuacion_somnolencia(microsuenos_acumulados_1, blink_rate, total_yawns, pesos) + 5
+            else:
+                somnolencia_puntuacion = calcular_puntuacion_somnolencia(microsuenos_acumulados_1, blink_rate, total_yawns, pesos)
+
+            if yawn_rate_60s > 1:
+                somnolencia_puntuacion += yawn_rate_60s**2
+            else:
+                somnolencia_puntuacion += 0
+
+            somnolencia_puntuacion = min(somnolencia_puntuacion,100)
+
             results.append({
                 "left_eye_status": str(leftEyeStatus),
                 "right_eye_status": str(rightEyeStatus),
                 "mar": float(mar),  # Asegurar que sea tipo float
                 "yawn_detected": bool(yawn_detected),
-                "somnolencia_puntuacion": float(somnolencia_puntuacion),  # Asegurar que sea tipo float
+                "somnolencia_puntuacion": round(float(somnolencia_puntuacion), 2),  # Asegurar que sea tipo float
                 "total_blinks": int(total_blinks),  # Asegurar que sea tipo int
                 "total_yawns": int(total_yawns),  # Asegurar que sea tipo int
                 "microsuenos_acumulados": int(microsuenos_acumulados),  # Asegurar que sea tipo int

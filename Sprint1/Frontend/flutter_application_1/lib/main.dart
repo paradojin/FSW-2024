@@ -219,7 +219,7 @@ class _CameraScreenState extends State<CameraScreen> {
       isSendingFrames = true;
       _controller?.startImageStream((CameraImage image) {
         if (_timer?.isActive ?? false) return;
-        _timer = Timer(Duration(milliseconds: 100), () {
+        _timer = Timer(Duration(milliseconds: 200), () {
           _sendFrameToServer(image);
         });
       });

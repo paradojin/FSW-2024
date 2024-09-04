@@ -143,8 +143,8 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
             raise HTTPException(status_code=400, detail="Error decoding the image")
 
         # Asegurarse de que la imagen esté orientada correctamente (rotarla si es necesario)
-        #frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)    # Para dispositivo fisico 
-        frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)          # Para emulador
+        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)    # Para dispositivo fisico 
+        #frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)          # Para emulador
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         #cv2.imshow("Frame from Server", frame)

@@ -160,6 +160,8 @@ class _CameraScreenState extends State<CameraScreen> {
   bool hasAlertTriggered = false;
 
   bool isDialogShown = false; // Nueva variable
+  String estado= "Bajo";
+  String color= "Negro";
 
   @override
   void initState() {
@@ -193,7 +195,7 @@ class _CameraScreenState extends State<CameraScreen> {
         });
       });
     } else {
-      _showSnackbar('Finalizando viaje...');
+      _showSnackbar('Viaje Finalizado...');
       _controller?.stopImageStream();
       _endTrip();
     }
@@ -218,6 +220,8 @@ class _CameraScreenState extends State<CameraScreen> {
           microsuenosAcumulados = 0;
           blinkRate60s = 0.0;
           yawnRate60s = 0.0;
+          estado= "Bajo";
+          color= "Negro";
         });
       }
     } catch (e) {
@@ -260,6 +264,8 @@ void _showSnackbar(String message) {
         microsuenosAcumulados = jsonResponse[0]['microsuenos_acumulados'];
         blinkRate60s = jsonResponse[0]['blink_rate_60s'];
         yawnRate60s = jsonResponse[0]['yawn_rate_60s'];
+        estado= jsonResponse[0]['alert_level'];
+        color= jsonResponse[0]['color'];
       });
 
       _checkForAlert();
@@ -403,16 +409,17 @@ void _showSnackbar(String message) {
   Widget _buildStatusDisplay() {
     return ListView(
       children: [
-        Text('Estado del Ojo Izquierdo: $leftEyeStatus (ear: $earleft)'),
-        Text('Estado del Ojo Derecho: $rightEyeStatus (ear: $earright)'),
+        Text('EOI: $leftEyeStatus (ear: $earleft)'),
+        Text('EOD: $rightEyeStatus (ear: $earright)'),
         Text('MAR: $mar'),
-        Text('Bostezo Detectado: $yawnDetected'),
-        Text('Puntuación de Somnolencia: $somnolenciaPuntuacion'),
+        Text('Somnolencia $estado: $somnolenciaPuntuacion'),
         Text('Total de Parpadeos: $totalBlinks'),
-        Text('Total de Bostezos: $totalYawns'),
-        Text('Microsueños Acumulados: $microsuenosAcumulados'),
         Text('Tasa de Parpadeos (60s): $blinkRate60s'),
+        Text('Microsueños Acumulados: $microsuenosAcumulados'),
+        Text('Total de Bostezos: $totalYawns'),
         Text('Tasa de Bostezos (60s): $yawnRate60s'),
+        Text('Bostezo Detectado: $yawnDetected'),
+        Text('Color: $color'),
       ],
     );
   }

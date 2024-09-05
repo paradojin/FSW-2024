@@ -39,6 +39,8 @@ total_yawns = 0
 microsuenos_acumulados = 0
 microsuenos_acumulados_1 = 0
 start_time = time.time()
+alert_level = None
+color = None
 
 # Variables para medir el tiempo de los ojos cerrados
 microsleep_start_time = None
@@ -108,7 +110,7 @@ async def ping():
 
 @app.get("/end_trip/")
 async def end_trip():
-    global blink_timestamps, yawn_timestamps, total_blinks, total_yawns, microsuenos_acumulados, start_time,blink_counter, microsleep_detected,microsuenos_acumulados_1
+    global blink_timestamps, yawn_timestamps, total_blinks, total_yawns, microsuenos_acumulados, start_time,blink_counter, microsleep_detected,microsuenos_acumulados_1, alert_level,color
     global left_eye_closed_start_time, right_eye_closed_start_time
 
     # Resetear las variables globales
@@ -124,6 +126,8 @@ async def end_trip():
     left_eye_closed_start_time = None
     right_eye_closed_start_time = None
     microsleep_detected = False
+    alert_level = None
+    color = None
 
     return JSONResponse(content={"status": "ok", "message": "Viaje finalizado y variables reseteadas."})
 
@@ -167,7 +171,7 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
 
             
             # Procesar los ojos
-            global total_blinks, microsuenos_acumulados, blink_counter, microsleep_start_time, microsleep_detected,microsuenos_acumulados_1
+            global total_blinks, microsuenos_acumulados, blink_counter, microsleep_start_time, microsleep_detected,microsuenos_acumulados_1, alert_level,color
 
             current_time = time.time()
             microsleep_threshold = 0.5
@@ -239,6 +243,23 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
 
             somnolencia_puntuacion = min(somnolencia_puntuacion,100)
 
+            if somnolencia_puntuacion < 20:
+                alert_level = "ninguna"
+                color = "negro"
+            elif 20 <= somnolencia_puntuacion < 40:
+                alert_level = "baja"
+                color = "verde"
+            elif 40 <= somnolencia_puntuacion < 60:
+                alert_level = "moderada"
+                color = "amarillo"
+            elif 60 <= somnolencia_puntuacion < 70:
+                alert_level = "alta"
+                color = "naranja"
+            else:
+                alert_level = "critica"
+                color = "rojo"
+
+
             results.append({
                 "left_eye_status": str(leftEyeStatus),
                 "right_eye_status": str(rightEyeStatus),
@@ -251,7 +272,9 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
                 "blink_rate_60s": float(blink_rate_60s),  # Asegurar que sea tipo float
                 "yawn_rate_60s": float(yawn_rate_60s),  # Asegurar que sea tipo float,
                 "ear_left": round(float(ear_left),2),
-                "ear_right": round(float(ear_rigth),2)
+                "ear_right": round(float(ear_rigth),2),
+                "alert_level": str(alert_level),
+                "color": str(color)
             })
 
 

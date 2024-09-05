@@ -190,7 +190,7 @@ class _CameraScreenState extends State<CameraScreen> {
       _showSnackbar('Iniciando viaje...');
       _controller?.startImageStream((CameraImage image) {
         if (_timer?.isActive ?? false) return;
-        _timer = Timer(Duration(milliseconds: 200), () {
+        _timer = Timer(Duration(milliseconds: 100), () {
           _sendFrameToServer(image);
         });
       });
@@ -274,12 +274,12 @@ void _showSnackbar(String message) {
     }
   } catch (e) {
     // Solo mostrar el cuadro de diálogo si no hay respuesta del servidor (timeout o desconexión)
-    if (!isDialogShown) {
+    /*if (!isDialogShown) {
       setState(() {
         isDialogShown = true; // Evitar múltiples cuadros de diálogo
       });
       _showConnectionError('No se pudo conectar con el servidor. Intenta nuevamente.');
-    }
+    }*/
     print('Error enviando frame o timeout: $e');
   }
 }

@@ -173,6 +173,7 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
             current_time = time.time()
             microsleep_threshold = 0.5
 
+    
             if leftEyeStatus == "Closed" and rightEyeStatus == "Closed":
                 
                 if microsleep_start_time is None:
@@ -188,7 +189,7 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
 
             else:
                 # Si los ojos se abren, reiniciar el temporizador y contar parpadeo si fue corto
-                if blink_counter > 1 :
+                if blink_counter > 1 and not microsleep_detected:
                     total_blinks += 1
                     blink_timestamps.append(current_time)
                     

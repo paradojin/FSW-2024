@@ -171,7 +171,7 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
             global total_blinks, microsuenos_acumulados, blink_counter, microsleep_start_time, microsleep_detected,microsuenos_acumulados_1, alert_level,color
 
             current_time = time.time()
-            microsleep_threshold = 0.5
+            microsleep_threshold = 0.7
 
     
             if leftEyeStatus == "Closed" and rightEyeStatus == "Closed":

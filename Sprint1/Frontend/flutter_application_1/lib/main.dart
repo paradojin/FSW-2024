@@ -5,27 +5,22 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:audioplayers/audioplayers.dart';
 
-void main() async {
+/*void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final cameras = await availableCameras();
   final firstCamera = cameras.first;
 
   runApp(MyApp(camera: firstCamera));
-}
+}*/
 
-/*void main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Inicializar las cámaras disponibles en el dispositivo
   final cameras = await availableCameras();
-  
-  // Seleccionar la cámara frontal en lugar de la primera cámara disponible
   final frontCamera = cameras.firstWhere(
     (camera) => camera.lensDirection == CameraLensDirection.front,
   );
-
   runApp(MyApp(camera: frontCamera));
-}*/
+}
 
 class MyApp extends StatelessWidget {
   final CameraDescription camera;
@@ -64,33 +59,33 @@ class _LoadingScreenState extends State<LoadingScreen> {
   }
 
   Future<void> _checkConnection() async {
-  try {
-    var response = await http
-        .get(Uri.parse('http://10.0.2.2:8000/ping/'))
-        .timeout(Duration(seconds: 3)); // Tiempo de espera de 3 segundos
+    try {
+      var response = await http
+          .get(Uri.parse('http://34.176.215.76:8000/ping/'))
+          .timeout(Duration(seconds: 3));
 
-    if (response.statusCode == 200) {
-      setState(() {
-        isConnected = true;
-        connectionMessage = "Conexión exitosa. Redirigiendo...";
-      });
-      await Future.delayed(Duration(seconds: 2));
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => CameraScreen(camera: widget.camera)),
-      );
-    } else {
+      if (response.statusCode == 200) {
+        setState(() {
+          isConnected = true;
+          connectionMessage = "Conexión exitosa. Redirigiendo...";
+        });
+        await Future.delayed(Duration(seconds: 2));
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (context) => CameraScreen(camera: widget.camera)),
+        );
+      } else {
+        setState(() {
+          connectionMessage = "Error: No se pudo conectar con el servidor.";
+        });
+        _showConnectionError();
+      }
+    } catch (e) {
       setState(() {
         connectionMessage = "Error: No se pudo conectar con el servidor.";
       });
       _showConnectionError();
     }
-  } catch (e) {
-    setState(() {
-      connectionMessage = "Error: No se pudo conectar con el servidor.";
-    });
-    _showConnectionError();
   }
-}
 
   void _showConnectionError() {
     showDialog(
@@ -149,18 +144,22 @@ class _CameraScreenState extends State<CameraScreen> {
   String leftEyeStatus = 'Unknown';
   String rightEyeStatus = 'Unknown';
   double mar = 0.0;
+  double earleft = 0.0;
+  double earright = 0.0;
   bool yawnDetected = false;
   double somnolenciaPuntuacion = 0.0;
   int totalBlinks = 0;
   int totalYawns = 0;
 
-  int microsuenosAcumulados= 0;
-  double blinkRate60s= 0.0;
-  double yawnRate60s= 0.0;
+  int microsuenosAcumulados = 0;
+  double blinkRate60s = 0.0;
+  double yawnRate60s = 0.0;
 
   AudioPlayer? audioPlayer;
   bool isAlertActive = false;
   bool hasAlertTriggered = false;
+
+  bool isDialogShown = false; // Nueva variable
 
   @override
   void initState() {
@@ -181,21 +180,34 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   void _startOrStopSendingFrames() async {
-  if (isSendingFrames) {
-    // Si el viaje está activo y se presiona "Finalizar viaje"
     setState(() {
-      isSendingFrames = false;
-      _controller?.stopImageStream();
+      isSendingFrames = !isSendingFrames;
     });
 
-    // Enviar la solicitud de finalizar viaje al servidor
+    if (isSendingFrames) {
+      _showSnackbar('Iniciando viaje...');
+      _controller?.startImageStream((CameraImage image) {
+        if (_timer?.isActive ?? false) return;
+        _timer = Timer(Duration(milliseconds: 200), () {
+          _sendFrameToServer(image);
+        });
+      });
+    } else {
+      _showSnackbar('Finalizando viaje...');
+      _controller?.stopImageStream();
+      _endTrip();
+    }
+  }
+
+  Future<void> _endTrip() async {
     try {
-      var response = await http.get(Uri.parse('http://10.0.2.2:8000/end_trip/'));  //http://10.0.2.2:8000/detect/
+      var response = await http.get(Uri.parse('http://34.176.215.76:8000/end_trip/'));
       if (response.statusCode == 200) {
-        // Respuesta exitosa, resetear las variables
         setState(() {
           leftEyeStatus = 'Unknown';
           rightEyeStatus = 'Unknown';
+          earleft = 0.0;
+          earright = 0.0;
           mar = 0.0;
           yawnDetected = false;
           somnolenciaPuntuacion = 0.0;
@@ -207,62 +219,87 @@ class _CameraScreenState extends State<CameraScreen> {
           blinkRate60s = 0.0;
           yawnRate60s = 0.0;
         });
-      } else {
-        print('Error al finalizar el viaje. Status code: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error al enviar la solicitud de finalizar viaje: $e');
+      print('Error al finalizar el viaje: $e');
     }
-  } else {
-    // Si el viaje no está activo y se presiona "Iniciar viaje"
-    setState(() {
-      isSendingFrames = true;
-      _controller?.startImageStream((CameraImage image) {
-        if (_timer?.isActive ?? false) return;
-        _timer = Timer(Duration(milliseconds: 200), () {
-          _sendFrameToServer(image);
-        });
-      });
-    });
   }
+
+void _showSnackbar(String message) {
+  final snackBar = SnackBar(content: Text(message));
+  ScaffoldMessenger.of(context).showSnackBar(snackBar);
 }
 
   Future<void> _sendFrameToServer(CameraImage image) async {
-    try {
-      var request = http.MultipartRequest('POST', Uri.parse('http://10.0.2.2:8000/detect/'));
-      request.files.add(http.MultipartFile.fromBytes('y_plane', image.planes[0].bytes, filename: 'y_plane'));
-      request.files.add(http.MultipartFile.fromBytes('u_plane', image.planes[1].bytes, filename: 'u_plane'));
-      request.files.add(http.MultipartFile.fromBytes('v_plane', image.planes[2].bytes, filename: 'v_plane'));
-      request.fields['width'] = image.width.toString();
-      request.fields['height'] = image.height.toString();
+  try {
+    var request = http.MultipartRequest('POST', Uri.parse('http://34.176.215.76:8000/detect/'));  //http://10.0.2.2:8000/detect/
+    request.files.add(http.MultipartFile.fromBytes('y_plane', image.planes[0].bytes, filename: 'y_plane'));
+    request.files.add(http.MultipartFile.fromBytes('u_plane', image.planes[1].bytes, filename: 'u_plane'));
+    request.files.add(http.MultipartFile.fromBytes('v_plane', image.planes[2].bytes, filename: 'v_plane'));
+    request.fields['width'] = image.width.toString();
+    request.fields['height'] = image.height.toString();
 
-      var response = await request.send();
+    // Asignar un timeout de 3 segundos
+    var response = await request.send().timeout(Duration(seconds: 3));
 
-      if (response.statusCode == 200) {
-        final responseBody = await response.stream.bytesToString();
-        final jsonResponse = jsonDecode(responseBody);
+    if (response.statusCode == 200) {
+      final responseBody = await response.stream.bytesToString();
+      final jsonResponse = jsonDecode(responseBody);
 
-        setState(() {
-          leftEyeStatus = jsonResponse[0]['left_eye_status'];
-          rightEyeStatus = jsonResponse[0]['right_eye_status'];
-          mar = jsonResponse[0]['mar'];
-          yawnDetected = jsonResponse[0]['yawn_detected'];
-          somnolenciaPuntuacion = jsonResponse[0]['somnolencia_puntuacion'];
-          totalBlinks = jsonResponse[0]['total_blinks'];
-          totalYawns = jsonResponse[0]['total_yawns'];
+      setState(() {
+        leftEyeStatus = jsonResponse[0]['left_eye_status'];
+        rightEyeStatus = jsonResponse[0]['right_eye_status'];
+        earleft = jsonResponse[0]['ear_left'];
+        earright = jsonResponse[0]['ear_right'];
+        mar = jsonResponse[0]['mar'];
+        yawnDetected = jsonResponse[0]['yawn_detected'];
+        somnolenciaPuntuacion = jsonResponse[0]['somnolencia_puntuacion'];
+        totalBlinks = jsonResponse[0]['total_blinks'];
+        totalYawns = jsonResponse[0]['total_yawns'];
 
-          microsuenosAcumulados = jsonResponse[0]['microsuenos_acumulados'];
-          blinkRate60s = jsonResponse[0]['blink_rate_60s'];
-          yawnRate60s = jsonResponse[0]['yawn_rate_60s'];
-        });
+        microsuenosAcumulados = jsonResponse[0]['microsuenos_acumulados'];
+        blinkRate60s = jsonResponse[0]['blink_rate_60s'];
+        yawnRate60s = jsonResponse[0]['yawn_rate_60s'];
+      });
 
-        _checkForAlert();  
-      } else {
-        print('Failed to send frame. Status code: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Error sending frame: $e');
+      _checkForAlert();
+    } else {
+      print('Error al enviar frame. Status code: ${response.statusCode}');
     }
+  } catch (e) {
+    // Solo mostrar el cuadro de diálogo si no hay respuesta del servidor (timeout o desconexión)
+    if (!isDialogShown) {
+      setState(() {
+        isDialogShown = true; // Evitar múltiples cuadros de diálogo
+      });
+      _showConnectionError('No se pudo conectar con el servidor. Intenta nuevamente.');
+    }
+    print('Error enviando frame o timeout: $e');
+  }
+}
+
+  void _showConnectionError(String errorMessage) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Error de Conexión'),
+          content: Text(errorMessage),
+          actions: [
+            TextButton(
+              child: Text('Reintentar'),
+              onPressed: () {
+                Navigator.of(context).pop();
+                setState(() {
+                  isDialogShown = false; // Permitir que el diálogo vuelva a aparecer si falla otra vez
+                });
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _checkForAlert() {
@@ -298,13 +335,11 @@ class _CameraScreenState extends State<CameraScreen> {
         );
       },
     );
-
-    _playAlarm();  
+    _playAlarm();
   }
 
   void _playAlarm() {
     audioPlayer?.setReleaseMode(ReleaseMode.loop);
-
     audioPlayer?.play(AssetSource('alarma.mp3'));
 
     Future.delayed(Duration(seconds: 30), () {
@@ -366,11 +401,10 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
   Widget _buildStatusDisplay() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return ListView(
       children: [
-        Text('Estado del Ojo Izquierdo: $leftEyeStatus'),
-        Text('Estado del Ojo Derecho: $rightEyeStatus'),
+        Text('Estado del Ojo Izquierdo: $leftEyeStatus (ear: $earleft)'),
+        Text('Estado del Ojo Derecho: $rightEyeStatus (ear: $earright)'),
         Text('MAR: $mar'),
         Text('Bostezo Detectado: $yawnDetected'),
         Text('Puntuación de Somnolencia: $somnolenciaPuntuacion'),

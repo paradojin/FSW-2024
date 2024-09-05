@@ -163,7 +163,7 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
 
         global left_eye_closed_start_time, right_eye_closed_start_time, microsleep_start_time
         for shape in shapes:
-            leftEyeStatus, rightEyeStatus = procesar_ojos(frame, gray, shape)
+            leftEyeStatus, rightEyeStatus, ear_left, ear_rigth = procesar_ojos(frame, gray, shape)
 
             
             # Procesar los ojos
@@ -249,7 +249,9 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
                 "total_yawns": int(total_yawns),  # Asegurar que sea tipo int
                 "microsuenos_acumulados": int(microsuenos_acumulados),  # Asegurar que sea tipo int
                 "blink_rate_60s": float(blink_rate_60s),  # Asegurar que sea tipo float
-                "yawn_rate_60s": float(yawn_rate_60s)  # Asegurar que sea tipo float
+                "yawn_rate_60s": float(yawn_rate_60s),  # Asegurar que sea tipo float,
+                "ear_left": round(float(ear_left),2),
+                "ear_right": round(float(ear_rigth),2)
             })
 
 
@@ -279,4 +281,6 @@ def procesar_ojos(frame, gray, shape):
 
     leftEyeStatus = eye_status(leftEyeRegion)
     rightEyeStatus = eye_status(rightEyeRegion)
-    return leftEyeStatus, rightEyeStatus
+    ear_left = eye_aspect_ratio(leftEye)
+    ear_right = eye_aspect_ratio(rightEye)
+    return leftEyeStatus, rightEyeStatus, ear_left, ear_right

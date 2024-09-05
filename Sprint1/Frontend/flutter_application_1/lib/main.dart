@@ -365,46 +365,71 @@ void _showSnackbar(String message) {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Monitoreo del Conductor en Tiempo Real')),
-      body: Column(
-        children: [
-          Expanded(
-            flex: 2,
-            child: FutureBuilder<void>(
-              future: _initializeControllerFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.done) {
-                  return AspectRatio(
-                    aspectRatio: _controller!.value.aspectRatio,
-                    child: CameraPreview(_controller!),
-                  );
-                } else {
-                  return Center(child: CircularProgressIndicator());
-                }
-              },
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Container(
-              color: Colors.white,
-              padding: EdgeInsets.all(10),
-              child: _buildStatusDisplay(),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: ElevatedButton(
-              onPressed: _startOrStopSendingFrames,
-              child: Text(isSendingFrames ? 'Finalizar viaje' : 'Iniciar viaje'),
-            ),
-          ),
-        ],
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+  title: Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Expanded(
+        child: Text(
+          'Monitoreo del Conductor en Tiempo Real',
+          overflow: TextOverflow.ellipsis,  // Si el texto es demasiado largo, lo corta con puntos suspensivos
+        ),
       ),
-    );
-  }
+      if (isSendingFrames) // Mostrar solo si el viaje está en curso
+        Padding(
+          padding: const EdgeInsets.only(left: 8.0),  // Agregar espacio entre el texto y el indicador
+          child: Container(
+            width: 15,
+            height: 15,
+            decoration: BoxDecoration(
+              color: Colors.red,
+              shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+
+    body: Column(
+      children: [
+        Expanded(
+          flex: 2,
+          child: FutureBuilder<void>(
+            future: _initializeControllerFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.done) {
+                return AspectRatio(
+                  aspectRatio: _controller!.value.aspectRatio,
+                  child: CameraPreview(_controller!),
+                );
+              } else {
+                return Center(child: CircularProgressIndicator());
+              }
+            },
+          ),
+        ),
+        Expanded(
+          flex: 1,
+          child: Container(
+            color: Colors.white,
+            padding: EdgeInsets.all(10),
+            child: _buildStatusDisplay(),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(20),
+          child: ElevatedButton(
+            onPressed: _startOrStopSendingFrames,
+            child: Text(isSendingFrames ? 'Finalizar viaje' : 'Iniciar viaje'),
+          ),
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _buildStatusDisplay() {
     return ListView(

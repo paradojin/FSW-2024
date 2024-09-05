@@ -157,11 +157,7 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
 
         # Detectar rostros y puntos faciales
         rects, shapes = detectar_rostros_y_puntos(gray)
-
-        # Verificar si se detectaron rostros
-        if len(rects) == 0:
-            raise HTTPException(status_code=400, detail="No se detectaron rostros en la imagen")
-            
+    
 
         results = []
 
@@ -282,7 +278,7 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
 
     except Exception as e:
         logging.error(f"Error processing image: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error processing image: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Error processing image: {str(e)}")
 
 
 def detectar_rostros_y_puntos(gray):

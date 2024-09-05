@@ -61,7 +61,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
   Future<void> _checkConnection() async {
     try {
       var response = await http
-          .get(Uri.parse('http://34.176.215.76:8000/ping/'))
+          .get(Uri.parse('http://34.176.215.76:8000/ping/')) //34.176.215.76:8000
           .timeout(Duration(seconds: 3));
 
       if (response.statusCode == 200) {

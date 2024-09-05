@@ -158,7 +158,8 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
         # Detectar rostros y puntos faciales
         rects, shapes = detectar_rostros_y_puntos(gray)
     
-
+        if len(shapes) == 0:
+            raise HTTPException(status_code=400, detail="No faces detected in the image")
         results = []
 
         global left_eye_closed_start_time, right_eye_closed_start_time, microsleep_start_time
@@ -173,6 +174,7 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
             microsleep_threshold = 0.5
 
             if leftEyeStatus == "Closed" and rightEyeStatus == "Closed":
+                
                 if microsleep_start_time is None:
                     microsleep_start_time = current_time
                 blink_counter += 1
@@ -186,9 +188,11 @@ async def detect(y_plane: UploadFile = File(...), u_plane: UploadFile = File(...
 
             else:
                 # Si los ojos se abren, reiniciar el temporizador y contar parpadeo si fue corto
-                if blink_counter > 1 and not microsleep_detected:
+                if blink_counter > 1 :
                     total_blinks += 1
                     blink_timestamps.append(current_time)
+                    
+                    
                     
                 # Reiniciar contadores al abrir los ojos
                 blink_counter = 0

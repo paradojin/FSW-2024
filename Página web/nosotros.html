@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="es">
+    <head>
+        <link rel="stylesheet" href="styles.css">
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>WUD</title>
+    </head>
+    <body>
+        <!-- Navigation bar -->
+        <nav class="navigation">
+            <ul class="navigation-bar">
+                <li class="navigation-button">
+                    <a href="#home">
+                        <img class="navigation-image" src="./images/Skippy_cabeza.png" alt="Skippy">
+                    </a>
+                </li>
+                <li class="navigation-button">
+                    <a class="navigation-not-viewing" href="./index.html">Home</a>
+                </li>
+                <li class="navigation-button">
+                    <a class="navigation-not-viewing" href="./productos.html">Productos</a>
+                </li>
+                <li class="navigation-button">
+                    <a class="navigation-viewing" href="./nosotros.html">Nosotros</a>
+                </li>
+                <li class="navigation-button">
+                    <a class="navigation-not-viewing" href="./contacto.html">Contacto</a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- contacto body -->
+        <div class="nosotros-first-page">
+            <div class="nosotros-pre-empresa">
+                <div class="nosotros-the-outcasts">
+                    <div class="nosotros-the-outcasts-image">
+                        <img src="./images/The_Outcasts.png" alt="logo-empresa">
+                    </div>
+                    <div class="nosotros-borrar-cajita">
+                        <p class="nosotros-borrar">
+                            Logo provicional, literalmente escribí el nombre, lo copié y pegué tres veces, le puse una estrella, y era. <br>
+                            Está aquí como placeholder, borrar y reeemplazar por el logo final de la pre-empresa.
+                        </p>
+                    </div>
+                </div>
+                <p class="nosotros-pre-empresa-definicion">
+                    The Outcasts es una pre-empresa chilena que busca soluciones innovadoras, accesibles, cómodas, y seguras para problemas cotidianos que requieren atención inmediata.
+                </p>
+            </div>
+            <div class="rectangulo-espacio-vacio-decorativo-irrelevante-quedaba-bien-perdon-cabros">
+                
+            </div>
+
+            <div class="nosotros-wrapper-mision-vision">
+                <div class="nosotros-wrapper-mision-vision">
+                    <div class="nosotros-mision">
+                        <h2>
+                            Nuestra misión es
+                        </h2>
+                        <p>
+                            <strong>Despertar</strong> a los conductores que sufren somnolencia al volante. <strong>Asegurar</strong> una conducción segura a nuestros usuarios.
+                        </p>
+                        <br>
+                        <br>
+                        <p>image.png</p>
+                    </div>
+                    <div class="nosotros-vision">
+                        <h2>
+                            Nuestra visión es
+                        </h2>
+                        <p>
+                            En un futuro, la somnolencia al volante <strong>ya no será una preocupación</strong> para la seguridad vial y la salud pública.
+                        </p>
+                        <br>
+                        <br>
+                        <p>image.png</p>
+                    </div>
+                </div>
+            
+            </div>
+            <script>
+                const contentWrapper = document.querySelector('.nosotros-pre-empresa');
+            
+                function createSquare() {
+                    const square = document.createElement('div');
+                    square.classList.add('square');
+                    
+                    square.style.left = `${Math.random() * 100}vw`;                             // posicion aleatoria eje x
+                    
+                    const size = Math.random() * 100 + 80;                                      // tamaño cuadrado
+                    square.style.width = `${size}px`;                                           // lado cuadrado
+                    square.style.height = `${size}px`;                                          // lado cuadrado
+                    const blueShade = Math.floor(Math.random() * 155) + 100;                    // colores azules
+                    const greenShade = Math.floor(Math.random() * 155);                         // colores verdes
+                    square.style.backgroundColor = `rgba(0, ${greenShade}, ${blueShade}, 0.3)`; // colores azules
+                    
+                    const duration = Math.random() * 8 + 5;                                     // duracion
+                    square.style.animationDuration = `${duration}s`;
+            
+                    contentWrapper.appendChild(square);
+            
+                    setTimeout(() => {                                                          // se pitea el cuadrado al terminar la animacion
+                        square.remove();
+                    }, duration * 1000);
+                }
+                setInterval(createSquare, 400);                                                 // cada 400ms crea un cuadrado
+            </script>
+        </div>
+
+        <div class="rectangulo-espacio-vacio-decorativo-irrelevante-quedaba-bien-perdon-cabros">
+                
+        </div>
+
+        <!-- nosotros images -->
+
+        <div class="nosotros-team">
+            <div class="nosotros-head-images">
+                <p class="nosotros-texto-equipo">
+                    ¡Conoce al equipo detrás de The Outcasts!
+                </p>
+            </div>
+            <div class="nosotros-wrapper-members">
+                <div class="nosotros-member">
+                    <ul class="nosotros-member-data">
+                        <li class="nosotros-member-titulo">
+                            <p>
+                                Scrum Master
+                            </p>
+                        </li>
+                        <li>
+                            <img class="nosotros-member-imagen" src="algo.png" alt="fotografía del encargado">
+                        </li>
+                        <li class="nosotros-member-nombre">
+                            <p>
+                                Martín Abbott
+                            </p>
+                            <a href="https://www.linkedin.com/in/martin-abbott-silva/" target="_blank">
+                                <img src="icons/linkedin.svg" alt="linkedin"> 
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="nosotros-member">
+                    <ul class="nosotros-member-data">
+                        <li class="nosotros-member-titulo">
+                            <p>
+                                Product Owner
+                            </p>
+                        </li>
+                        <li>
+                            <img class="nosotros-member-imagen" src="algo.png" alt="fotografía del encargado">
+                        </li>
+                        <li class="nosotros-member-nombre">
+                            <p>
+                                Franco Reinoso
+                            </p>
+                            <a href="https://www.linkedin.com/in/freinoso-araya/" target="_blank">
+                                <img src="icons/linkedin.svg" alt="linkedin"> 
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="nosotros-member">
+                    <ul class="nosotros-member-data">
+                        <li class="nosotros-member-titulo">
+                            <p>
+                                Encargado de Marketing
+                            </p>
+                        </li>
+                        <li>
+                            <img class="nosotros-member-imagen" src="algo.png" alt="fotografía del encargado">
+                        </li>
+                        <li class="nosotros-member-nombre">
+                            <p>
+                                Daniel Villaroel
+                            </p>
+                            <a href="https://www.linkedin.com/in/daniel-villarroel-moraga/" target="_blank">
+                                <img src="icons/linkedin.svg" alt="linkedin"> 
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="nosotros-member">
+                    <ul class="nosotros-member-data">
+                        <li class="nosotros-member-titulo">
+                            <p>
+                                Encargado de Testing
+                            </p>
+                        </li>
+                        <li>
+                            <img class="nosotros-member-imagen" src="algo.png" alt="fotografía del encargado">
+                        </li>
+                        <li class="nosotros-member-nombre">
+                            <p>
+                                Kevin Vega
+                            </p>
+                            <a href="https://www.linkedin.com/in/kevin-andrés-vega-olivas-4670362a1/" target="_blank">
+                                <img src="icons/linkedin.svg" alt="linkedin"> 
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="nosotros-member">
+                    <ul class="nosotros-member-data">
+                        <li class="nosotros-member-titulo">
+                            <p>
+                                Encargado de Tecnologías
+                            </p>
+                        </li>
+                        <li>
+                            <img class="nosotros-member-imagen" src="algo.png" alt="fotografía del encargado">
+                        </li>
+                        <li class="nosotros-member-nombre">
+                            <p>
+                                Gonzalo Lazen
+                            </p>
+                            <a href="https://www.linkedin.com/in/gonzalo-lazen/" target="_blank">
+                                <img src="icons/linkedin.svg" alt="linkedin"> 
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="nosotros-member">
+                    <ul class="nosotros-member-data">
+                        <li class="nosotros-member-titulo">
+                            <p>
+                                Encargado de Diseño y UX
+                            </p>
+                        </li>
+                        <li>
+                            <img class="nosotros-member-imagen" src="algo.png" alt="fotografía del encargado">
+                        </li>
+                        <li class="nosotros-member-nombre">
+                            <p>
+                                Dylhan Aros
+                            </p>
+                            <a href="https://www.linkedin.com/in/dylhan-aros/" target="_blank">
+                                <img src="icons/linkedin.svg" alt="linkedin"> 
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="nosotros-member">
+                    <ul class="nosotros-member-data">
+                        <li class="nosotros-member-titulo">
+                            <p>
+                                Mascota oficial
+                            </p>
+                        </li>
+                        <li>
+                            <img class="nosotros-member-imagen" src="algo.png" alt="fotografía del encargado">
+                        </li>
+                        <li class="nosotros-member-nombre">
+                            <p>
+                                Skippy
+                            </p>
+                            <a href="https://www.instagram.com/wakeup.driver/" target="_blank">
+                                <img src="icons/instagram.svg" alt="linkedin"> 
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+        </div>
+
+        <div class="rectangulo-espacio-vacio-decorativo-irrelevante-quedaba-bien-perdon-cabros">
+                
+        </div>
+        <!-- footer -->
+        <footer>
+            <div class="footer-wrapper">
+                <div class="line-sponsors">
+                    <!-- imagen empresa-->
+                    <ul class="brand">
+                        <li>
+                            <p class="subtitle">
+                                The Outcasts
+                            </p>
+                        </li>
+                    </ul>
+                </div>
+                <div class="line-sponsors">
+                    <!-- redes sociales -->
+                    <ul class="social-networks">
+                        <li>
+                            <a href="https://www.x.com/wakeup_driver" target="_blank">
+                                <img src="icons/x.svg" alt="X">
+                            </a>
+                        </li>
+                        <li>
+                            <a href="https://www.instagram.com/wakeup.driver/" target="_blank">
+                                <img src="icons/instagram.svg" alt="Instagram"> 
+                            </a>
+                        </li>
+                        <li>
+                            <a href="https://www.linkedin.com/company/wakeup-driver/" target="_blank">
+                                <img src="icons/linkedin.svg" alt="linkedin"> 
+                            </a>
+                        </li>
+                    </ul>
+                    
+                </div>
+                <div class="line-sponsors">
+                    <!-- feria -->
+                    <ul class="feria">
+                        <li>
+                            <a href="https://www.feriadesoftware.cl" target="_blank">
+                                <img class="logo-feria" src="icons/fesw_logo_w.png" alt="logo_feria">
+                            </a>
+                        </li>
+                        <li>
+                            <a href="https://www.feriadesoftware.cl" target="_blank">
+                                XXXII Feria de Software
+                            </a>
+                        </li>
+                        <li>
+                            <a href="http://www.inf.utfsm.cl/" target="_blank">
+                                Departamento de informática
+                            </a>
+                        </li>
+                        <li class="uni">
+                            Universidad Técnica Federico Santa María
+                        </li>
+                    </ul>
+                </div>
+                <div class="line-sponsors">
+                    <!-- contactos -->
+                    <ul class="contact">
+                        <li>
+                            <p class="contact-line">
+                                <img class="icon" src="icons/location_mark.svg" alt="dirección">
+                                Av. Vicuña Mackenna 3939, Santiago
+                            </p>
+                        </li>
+                        <li>
+                            <p class="contact-line">
+                                <img class="icon" src="icons/phone.svg" alt="celular">
+                                + 56 (9) 4551 5398
+                            </p>
+                        </li>
+                        <li>
+                            <p class="contact-line">
+                                <img class="icon" src="icons/email.svg" alt="correo">
+                                wakeupdriverfw@gmail.com
+                            </p>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="copyright">
+                <p class="linea">
+                    &copy 2024 The Outcasts . Todos los derechos reservados.
+                </p>
+            </div>
+        </footer>
+    </body>
